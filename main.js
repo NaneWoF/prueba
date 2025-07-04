@@ -55,7 +55,7 @@ function switchAuth(showLogin) {
 }
 qs("#toggle-auth").onclick = e => {
   e.preventDefault();
-  switchAuth(qs("#login-form").style.display !== "none");
+  switchAuth(window.getComputedStyle(qs("#login-form")).display !== "none");
 };
 switchAuth(true);
 
