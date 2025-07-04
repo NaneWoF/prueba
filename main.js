@@ -1,4 +1,3 @@
-alert("JS cargado!");
 document.addEventListener("DOMContentLoaded", function() {
 const firebaseConfig = {
   apiKey: "AIzaSyB4OFajtU-bKi7wuN5B1N_1x71hDo4nf8U",
@@ -30,6 +29,8 @@ hide("#auth-section");
 hide("#user-panel");
 hide("#admin-panel");
 show("#loader");
+
+  console.log("Inicialización completa. DOM, Firebase, y funciones listos.");
 
 // --- Auth ---
 function switchAuth(showLogin) {
