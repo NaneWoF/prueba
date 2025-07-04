@@ -39,14 +39,17 @@ const authTitle = qs("#auth-title");
 
 // --- Auth ---
 function switchAuth(showLogin) {
-  console.log("switchAuth activado", showLogin);
   show("#auth-section");
+  isLoginVisible = showLogin;
+  console.log("switchAuth activado, showLogin=", showLogin);
   if (showLogin) {
+    console.log("mostrando login");
     qs("#auth-title").innerText = "Ingreso";
     show("#login-form");
     hide("#register-form");
     qs("#toggle-auth").innerText = "¿No tienes cuenta? Regístrate aquí";
   } else {
+    console.log("mostrando registro");
     qs("#auth-title").innerText = "Registro";
     hide("#login-form");
     show("#register-form");
@@ -59,7 +62,8 @@ function switchAuth(showLogin) {
 }
 qs("#toggle-auth").onclick = e => {
   e.preventDefault();
-  switchAuth(window.getComputedStyle(qs("#login-form")).display !== "none");
+  console.log("click en toggle-auth registrado");
+  switchAuth(!isLoginVisible);
 };
 switchAuth(true);
 
