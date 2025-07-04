@@ -38,7 +38,6 @@ const registerForm = qs("#register-form");
 const authTitle = qs("#auth-title");
 
 // --- Auth ---
-// --- Auth ---
 function switchAuth(showLogin) {
   if (showLogin) {
     qs("#auth-title").innerText = "Ingreso";
@@ -51,7 +50,10 @@ function switchAuth(showLogin) {
     show("#register-form");
     qs("#toggle-auth").innerText = "¿Ya tienes cuenta? Inicia sesión aquí";
   }
+  // resetear mensajes
   qs("#auth-error").innerText = "";
+  hide("#auth-message");
+  qs("#auth-message").innerHTML = "";
 }
 qs("#toggle-auth").onclick = e => {
   e.preventDefault();
