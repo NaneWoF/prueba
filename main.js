@@ -161,36 +161,52 @@ async function loadUserData() {
 }
 
 // --- Panel usuario ---
+let salidaListener = null;
+
 async function showUserPanel() {
   hide("#auth-section"); hide("#admin-panel"); show("#user-panel");
-  const devSnap = await db.ref("dispositivos/" + currentDevice).once("value");
-  const dev = devSnap.val();
-  setText("#user-status", `
-    <b>Dispositivo:</b> ${currentDevice} <br>
-    <b>Última salida:</b> ${dev && dev.salida && dev.salida.nombre ? dev.salida.nombre + " (" + dev.salida.direccion + ")" : "Sin registros"}
-    <br><b>Estado actual:</b> <span style="color:${dev && dev.salida && dev.salida.estado ? 'green':'red'}">${dev && dev.salida && dev.salida.estado ? 'ACTIVADA':'DESACTIVADA'}</span>
-  `);
 
-  qs("#user-controls").innerHTML = `
-    <button id="salida-btn">${dev && dev.salida && dev.salida.estado ? 'Desactivar':'Activar'} salida</button>
-  `;
+  // Remueve listener anterior si existe
+  if (salidaListener) {
+    db.ref("dispositivos/" + currentDevice + "/salida").off("value", salidaListener);
+  }
 
-  qs("#salida-btn").onclick = async () => {
-    const estadoNuevo = !(dev && dev.salida && dev.salida.estado);
-    await db.ref("dispositivos/" + currentDevice + "/relay1").set(estadoNuevo);
-    await db.ref("dispositivos/" + currentDevice + "/salida").set({
-      estado: estadoNuevo,
-      nombre: userData && userData.nombre ? userData.nombre : currentUser.email,
-      direccion: userData && userData.direccion ? userData.direccion : "",
-      timestamp: Date.now()
-    });
-    loadUserData();
+  salidaListener = function(snapshot) {
+    const devSalida = snapshot.val();
+    setText("#user-status", `
+      <b>Dispositivo:</b> ${currentDevice} <br>
+      <b>Última salida:</b> ${devSalida && devSalida.nombre ? devSalida.nombre + " (" + devSalida.direccion + ")" : "Sin registros"}
+      <br><b>Estado actual:</b> <span style="color:${devSalida && devSalida.estado ? 'green':'red'}">${devSalida && devSalida.estado ? 'ACTIVADA':'DESACTIVADA'}</span>
+    `);
+
+    qs("#user-controls").innerHTML = `
+      <button id="salida-btn">${devSalida && devSalida.estado ? 'Desactivar':'Activar'} salida</button>
+    `;
+    qs("#salida-btn").onclick = async () => {
+      // Activar/desactivar salida y registrar usuario
+      const estadoNuevo = !(devSalida && devSalida.estado);
+      await db.ref("dispositivos/" + currentDevice + "/relay1").set(estadoNuevo);
+      await db.ref("dispositivos/" + currentDevice + "/salida").set({
+        estado: estadoNuevo,
+        nombre: userData && userData.nombre ? userData.nombre : currentUser.email,
+        direccion: userData && userData.direccion ? userData.direccion : "",
+        timestamp: Date.now()
+      });
+    };
   };
 
-  qs("#logout-btn").onclick = () => auth.signOut();
+  db.ref("dispositivos/" + currentDevice + "/salida").on("value", salidaListener);
+
+  qs("#logout-btn").onclick = () => {
+    if (salidaListener) {
+      db.ref("dispositivos/" + currentDevice + "/salida").off("value", salidaListener);
+    }
+    auth.signOut();
+  };
 }
 
-// --- Panel admin ---
+let adminDeviceListener = null; // Para guardar referencia y quitarlo
+
 function showAdminPanel(dispositivos) {
   hide("#auth-section"); hide("#user-panel"); show("#admin-panel");
   const devList = Object.keys(dispositivos);
@@ -209,196 +225,204 @@ function showAdminPanel(dispositivos) {
   qs("#logout-btn-admin").onclick = () => auth.signOut();
 }
 
-async function showAdminDevice(devID) {
-  const devSnap = await db.ref("dispositivos/" + devID).once("value");
-  const dev = devSnap.val();
-  setText("#admin-status", `
-    <b>Dispositivo:</b> ${devID}<br>
-    <b>Administrador:</b> ${dev && dev.admin ? dev.admin.replace(/_/g, ".") : ""}<br>
-    <b>Última salida:</b> ${dev && dev.salida && dev.salida.nombre ? dev.salida.nombre + " (" + dev.salida.direccion + ")" : "Sin registros"}
-    <br><b>Estado actual:</b> <span style="color:${dev && dev.salida && dev.salida.estado ? 'green':'red'}">${dev && dev.salida && dev.salida.estado ? 'ACTIVADA':'DESACTIVADA'}</span>
-  `);
-
-  // --- Botón solicitudes
-  if (!qs("#view-requests-btn")) {
-    const btn = document.createElement("button");
-    btn.id = "view-requests-btn";
-    btn.textContent = "Solicitudes de acceso";
-    btn.onclick = () => showSolicitudesPendientes(devID);
-    qs("#admin-panel").insertBefore(btn, qs("#admin-panel").children[4]);
-  } else {
-    qs("#view-requests-btn").onclick = () => showSolicitudesPendientes(devID);
+function showAdminDevice(devID) {
+  // Quitar listener anterior si existe
+  if (adminDeviceListener) {
+    db.ref("dispositivos/" + devID).off("value", adminDeviceListener);
+    adminDeviceListener = null;
   }
 
-  // --- Usuarios
-  qs("#add-user-btn").onclick = async () => {
-    const usuariosSnap = await db.ref("usuarios").once("value");
-    const usuarios = usuariosSnap.val() || {};
-    let selectHtml = "<select id='user-to-add'>";
-    Object.keys(usuarios).forEach(uid => {
-      if (!dev.usuarios || !dev.usuarios[uid]) {
-        selectHtml += `<option value="${uid}">${usuarios[uid].nombre} (${usuarios[uid].email})</option>`;
-      }
-    });
-    selectHtml += "</select>";
-    setText("#admin-sections", `
-      <h3>Agregar usuario al dispositivo</h3>
-      ${selectHtml}
-      <button id="confirm-add-user">Agregar</button>
-      <button id="cancel-admin-section">Cancelar</button>
+  // Listener en tiempo real
+  adminDeviceListener = db.ref("dispositivos/" + devID).on("value", (devSnap) => {
+    const dev = devSnap.val();
+    setText("#admin-status", `
+      <b>Dispositivo:</b> ${devID}<br>
+      <b>Administrador:</b> ${dev && dev.admin ? dev.admin.replace(/_/g, ".") : ""}<br>
+      <b>Última salida:</b> ${dev && dev.salida && dev.salida.nombre ? dev.salida.nombre + " (" + dev.salida.direccion + ")" : "Sin registros"}
+      <br><b>Estado actual:</b> <span style="color:${dev && dev.salida && dev.salida.estado ? 'green':'red'}">${dev && dev.salida && dev.salida.estado ? 'ACTIVADA':'DESACTIVADA'}</span>
     `);
-    qs("#confirm-add-user").onclick = async () => {
-      const newUser = qs("#user-to-add").value;
-      await db.ref("dispositivos/" + devID + "/usuarios/" + newUser).set(true);
-      await db.ref("relacionesUsuarios/" + newUser + "/" + devID).set(true);
-      setText("#admin-sections", "<b>Usuario agregado!</b>");
-      setTimeout(() => showAdminDevice(devID), 1500);
-    };
-    qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
-  };
 
-  // --- Gestionar usuarios
-  qs("#manage-users-btn").onclick = () => {
-    let listHtml = "<h3>Usuarios actuales</h3><ul>";
-    if (dev.usuarios) {
-      Object.keys(dev.usuarios).forEach(uid => {
-        listHtml += `<li>${uid.replace(/_/g, ".")}
-          <button class="danger" data-uid="${uid}">Quitar</button>
+    // --- Botón solicitudes (solo se crea una vez)
+    if (!qs("#view-requests-btn")) {
+      const btn = document.createElement("button");
+      btn.id = "view-requests-btn";
+      btn.textContent = "Solicitudes de acceso";
+      btn.onclick = () => showSolicitudesPendientes(devID);
+      qs("#admin-panel").insertBefore(btn, qs("#admin-panel").children[4]);
+    } else {
+      qs("#view-requests-btn").onclick = () => showSolicitudesPendientes(devID);
+    }
+
+    // --- Usuarios
+    qs("#add-user-btn").onclick = async () => {
+      const usuariosSnap = await db.ref("usuarios").once("value");
+      const usuarios = usuariosSnap.val() || {};
+      let selectHtml = "<select id='user-to-add'>";
+      Object.keys(usuarios).forEach(uid => {
+        if (!dev.usuarios || !dev.usuarios[uid]) {
+          selectHtml += `<option value="${uid}">${usuarios[uid].nombre} (${usuarios[uid].email})</option>`;
+        }
+      });
+      selectHtml += "</select>";
+      setText("#admin-sections", `
+        <h3>Agregar usuario al dispositivo</h3>
+        ${selectHtml}
+        <button id="confirm-add-user">Agregar</button>
+        <button id="cancel-admin-section">Cancelar</button>
+      `);
+      qs("#confirm-add-user").onclick = async () => {
+        const newUser = qs("#user-to-add").value;
+        await db.ref("dispositivos/" + devID + "/usuarios/" + newUser).set(true);
+        await db.ref("relacionesUsuarios/" + newUser + "/" + devID).set(true);
+        setText("#admin-sections", "<b>Usuario agregado!</b>");
+        setTimeout(() => showAdminDevice(devID), 1500);
+      };
+      qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
+    };
+
+    // --- Gestionar usuarios
+    qs("#manage-users-btn").onclick = () => {
+      let listHtml = "<h3>Usuarios actuales</h3><ul>";
+      if (dev.usuarios) {
+        Object.keys(dev.usuarios).forEach(uid => {
+          listHtml += `<li>${uid.replace(/_/g, ".")}
+            <button class="danger" data-uid="${uid}">Quitar</button>
+          </li>`;
+        });
+      }
+      listHtml += "</ul><button id='cancel-admin-section'>Cerrar</button>";
+      setText("#admin-sections", listHtml);
+      document.querySelectorAll("#admin-sections button.danger").forEach(btn => {
+        btn.onclick = async e => {
+          const uid = e.target.getAttribute("data-uid");
+          await db.ref("dispositivos/" + devID + "/usuarios/" + uid).remove();
+          await db.ref("relacionesUsuarios/" + uid + "/" + devID).remove();
+          showAdminDevice(devID);
+        };
+      });
+      qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
+    };
+
+    // --- Gestionar transmisores
+    qs("#manage-transmitters-btn").onclick = async () => {
+      const trans = dev.transmisores || [];
+      let tHtml = "<h3>Transmisores</h3><ul>";
+      trans.forEach((t, i) => {
+        tHtml += `<li>
+          <b>${t.nombre || "Sin nombre"}</b> - ${t.direccion || ""} <br>
+          Código: ${t.codigo} 
+          <button class="danger" data-idx="${i}">Eliminar</button>
+          <button class="edit" data-idx="${i}">Editar</button>
         </li>`;
       });
-    }
-    listHtml += "</ul><button id='cancel-admin-section'>Cerrar</button>";
-    setText("#admin-sections", listHtml);
-    document.querySelectorAll("#admin-sections button.danger").forEach(btn => {
-      btn.onclick = async e => {
-        const uid = e.target.getAttribute("data-uid");
-        await db.ref("dispositivos/" + devID + "/usuarios/" + uid).remove();
-        await db.ref("relacionesUsuarios/" + uid + "/" + devID).remove();
-        showAdminDevice(devID);
-      };
-    });
-    qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
-  };
+      tHtml += "</ul><button id='add-trans-btn'>Agregar transmisor</button>";
+      tHtml += "<button id='cancel-admin-section'>Cerrar</button>";
+      setText("#admin-sections", tHtml);
 
-  // --- Gestionar transmisores
-  qs("#manage-transmitters-btn").onclick = async () => {
-    const trans = dev.transmisores || [];
-    let tHtml = "<h3>Transmisores</h3><ul>";
-    trans.forEach((t, i) => {
-      tHtml += `<li>
-        <b>${t.nombre || "Sin nombre"}</b> - ${t.direccion || ""} <br>
-        Código: ${t.codigo} 
-        <button class="danger" data-idx="${i}">Eliminar</button>
-        <button class="edit" data-idx="${i}">Editar</button>
-      </li>`;
-    });
-    tHtml += "</ul><button id='add-trans-btn'>Agregar transmisor</button>";
-    tHtml += "<button id='cancel-admin-section'>Cerrar</button>";
-    setText("#admin-sections", tHtml);
-
-    // Eliminar transmisor
-    document.querySelectorAll("#admin-sections button.danger").forEach(btn => {
-      btn.onclick = async e => {
-        const idx = btn.getAttribute("data-idx");
-        trans.splice(idx, 1);
-        await db.ref("dispositivos/" + devID + "/transmisores").set(trans);
-        showAdminDevice(devID);
-      };
-    });
-
-    // Editar transmisor
-    document.querySelectorAll("#admin-sections button.edit").forEach(btn => {
-      btn.onclick = e => {
-        const idx = btn.getAttribute("data-idx");
-        const t = trans[idx];
-        setText("#admin-sections", `
-          <h3>Editar transmisor</h3>
-          <input type="text" id="edit-t-name" value="${t.nombre || ""}" placeholder="Nombre">
-          <input type="text" id="edit-t-dir" value="${t.direccion || ""}" placeholder="Dirección">
-          <button id="save-edit-trans">Guardar</button>
-          <button id="cancel-admin-section">Cancelar</button>
-        `);
-        qs("#save-edit-trans").onclick = async () => {
-          t.nombre = qs("#edit-t-name").value;
-          t.direccion = qs("#edit-t-dir").value;
-          trans[idx] = t;
+      // Eliminar transmisor
+      document.querySelectorAll("#admin-sections button.danger").forEach(btn => {
+        btn.onclick = async e => {
+          const idx = btn.getAttribute("data-idx");
+          trans.splice(idx, 1);
           await db.ref("dispositivos/" + devID + "/transmisores").set(trans);
           showAdminDevice(devID);
         };
-        qs("#cancel-admin-section").onclick = () => showAdminDevice(devID);
-      };
-    });
+      });
 
-    // Agregar transmisor
-    qs("#add-trans-btn").onclick = async () => {
-      await db.ref("dispositivos/" + devID + "/modoEscucha").set(true);
+      // Editar transmisor
+      document.querySelectorAll("#admin-sections button.edit").forEach(btn => {
+        btn.onclick = e => {
+          const idx = btn.getAttribute("data-idx");
+          const t = trans[idx];
+          setText("#admin-sections", `
+            <h3>Editar transmisor</h3>
+            <input type="text" id="edit-t-name" value="${t.nombre || ""}" placeholder="Nombre">
+            <input type="text" id="edit-t-dir" value="${t.direccion || ""}" placeholder="Dirección">
+            <button id="save-edit-trans">Guardar</button>
+            <button id="cancel-admin-section">Cancelar</button>
+          `);
+          qs("#save-edit-trans").onclick = async () => {
+            t.nombre = qs("#edit-t-name").value;
+            t.direccion = qs("#edit-t-dir").value;
+            trans[idx] = t;
+            await db.ref("dispositivos/" + devID + "/transmisores").set(trans);
+            showAdminDevice(devID);
+          };
+          qs("#cancel-admin-section").onclick = () => showAdminDevice(devID);
+        };
+      });
+
+      // Agregar transmisor
+      qs("#add-trans-btn").onclick = async () => {
+        await db.ref("dispositivos/" + devID + "/modoEscucha").set(true);
+        setText("#admin-sections", `
+          <h3>Modo escucha activado</h3>
+          <p>Presiona el transmisor físico para capturar el código desde el equipo.<br>
+          Espera la señal y luego completa los datos.</p>
+          <button id="cancel-admin-section">Cancelar</button>
+        `);
+        qs("#cancel-admin-section").onclick = () => showAdminDevice(devID);
+        db.ref("dispositivos/" + devID + "/codigoCapturado").on("value", async snap => {
+          const codigo = snap.val();
+          if (codigo && codigo !== 0) {
+            setText("#admin-sections", `
+              <h3>Nuevo transmisor detectado</h3>
+              <form id="new-trans-form">
+                <input type="text" id="new-t-name" placeholder="Nombre" required>
+                <input type="text" id="new-t-dir" placeholder="Dirección" required>
+                <input type="text" id="new-t-code" value="${codigo}" readonly>
+                <button type="submit">Guardar</button>
+                <button type="button" id="cancel-admin-section">Cancelar</button>
+              </form>
+            `);
+            qs("#new-trans-form").onsubmit = async e => {
+              e.preventDefault();
+              trans.push({
+                codigo: codigo,
+                nombre: qs("#new-t-name").value,
+                direccion: qs("#new-t-dir").value,
+                idWeb: ""
+              });
+              await db.ref("dispositivos/" + devID + "/transmisores").set(trans);
+              await db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
+              showAdminDevice(devID);
+            };
+            qs("#cancel-admin-section").onclick = () => {
+              db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
+              showAdminDevice(devID);
+            };
+          }
+        });
+      };
+      qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
+    };
+
+    // --- Transferir administración ---
+    qs("#admin-transfer-btn").onclick = async () => {
+      let sel = "<select id='transfer-user'>";
+      if (dev.usuarios) {
+        Object.keys(dev.usuarios).forEach(uid => {
+          if (uid !== dev.admin) {
+            sel += `<option value="${uid}">${uid.replace(/_/g, ".")}</option>`;
+          }
+        });
+      }
+      sel += "</select>";
       setText("#admin-sections", `
-        <h3>Modo escucha activado</h3>
-        <p>Presiona el transmisor físico para capturar el código desde el equipo.<br>
-        Espera la señal y luego completa los datos.</p>
+        <h3>Transferir administración</h3>
+        ${sel}
+        <button id="confirm-transfer">Transferir</button>
         <button id="cancel-admin-section">Cancelar</button>
       `);
-      qs("#cancel-admin-section").onclick = () => showAdminDevice(devID);
-      db.ref("dispositivos/" + devID + "/codigoCapturado").on("value", async snap => {
-        const codigo = snap.val();
-        if (codigo && codigo !== 0) {
-          setText("#admin-sections", `
-            <h3>Nuevo transmisor detectado</h3>
-            <form id="new-trans-form">
-              <input type="text" id="new-t-name" placeholder="Nombre" required>
-              <input type="text" id="new-t-dir" placeholder="Dirección" required>
-              <input type="text" id="new-t-code" value="${codigo}" readonly>
-              <button type="submit">Guardar</button>
-              <button type="button" id="cancel-admin-section">Cancelar</button>
-            </form>
-          `);
-          qs("#new-trans-form").onsubmit = async e => {
-            e.preventDefault();
-            trans.push({
-              codigo: codigo,
-              nombre: qs("#new-t-name").value,
-              direccion: qs("#new-t-dir").value,
-              idWeb: ""
-            });
-            await db.ref("dispositivos/" + devID + "/transmisores").set(trans);
-            await db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
-            showAdminDevice(devID);
-          };
-          qs("#cancel-admin-section").onclick = () => {
-            db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
-            showAdminDevice(devID);
-          };
-        }
-      });
+      qs("#confirm-transfer").onclick = async () => {
+        const newAdmin = qs("#transfer-user").value;
+        await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
+        setText("#admin-sections", "<b>Transferencia exitosa.</b>");
+        setTimeout(() => showAdminDevice(devID), 1500);
+      };
+      qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
     };
-    qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
-  };
-
-  // --- Transferir administración ---
-  qs("#admin-transfer-btn").onclick = async () => {
-    let sel = "<select id='transfer-user'>";
-    if (dev.usuarios) {
-      Object.keys(dev.usuarios).forEach(uid => {
-        if (uid !== dev.admin) {
-          sel += `<option value="${uid}">${uid.replace(/_/g, ".")}</option>`;
-        }
-      });
-    }
-    sel += "</select>";
-    setText("#admin-sections", `
-      <h3>Transferir administración</h3>
-      ${sel}
-      <button id="confirm-transfer">Transferir</button>
-      <button id="cancel-admin-section">Cancelar</button>
-    `);
-    qs("#confirm-transfer").onclick = async () => {
-      const newAdmin = qs("#transfer-user").value;
-      await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
-      setText("#admin-sections", "<b>Transferencia exitosa.</b>");
-      setTimeout(() => showAdminDevice(devID), 1500);
-    };
-    qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
-  };
+  });
 }
 
 // --- Solicitudes pendientes ---
@@ -440,14 +464,5 @@ async function showSolicitudesPendientes(devID) {
   qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
 }
 
-// --- Trae datos de usuario (nombre, dirección)
-auth.onIdTokenChanged(async (user) => {
-  if (user) {
-    const userSnap = await db.ref("usuarios/" + user.email.replace(/\./g, "_")).once("value");
-    userData = userSnap.val();
-  } else {
-    userData = null;
-  }
-});
 
 
