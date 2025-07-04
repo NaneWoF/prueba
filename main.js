@@ -121,6 +121,8 @@ auth.onAuthStateChanged(async user => {
     show("#auth-section");
     hide("#user-panel");
     hide("#admin-panel");
+    hide("#auth-message");                
+    qs("#auth-message").innerHTML = ""; 
     setText("#auth-error", "");
     currentUser = null;
     userData = null;
