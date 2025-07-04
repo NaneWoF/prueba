@@ -386,46 +386,70 @@ function showAdminDevice(devID) {
 
       // Agregar transmisor
       qs("#add-trans-btn").onclick = async () => {
-        await db.ref("dispositivos/" + devID + "/modoEscucha").set(true);
-        setText("#admin-sections", `
-          <h3>Modo escucha activado</h3>
-          <p>Presiona el transmisor físico para capturar el código desde el equipo.<br>
-          Espera la señal y luego completa los datos.</p>
-          <button id="cancel-admin-section">Cancelar</button>
-        `);
-        qs("#cancel-admin-section").onclick = () => showAdminDevice(devID);
-        db.ref("dispositivos/" + devID + "/codigoCapturado").on("value", async snap => {
-          const codigo = snap.val();
-          if (codigo && codigo !== 0) {
-            setText("#admin-sections", `
-              <h3>Nuevo transmisor detectado</h3>
-              <form id="new-trans-form">
-                <input type="text" id="new-t-name" placeholder="Nombre" required>
-                <input type="text" id="new-t-dir" placeholder="Dirección" required>
-                <input type="text" id="new-t-code" value="${codigo}" readonly>
-                <button type="submit">Guardar</button>
-                <button type="button" id="cancel-admin-section">Cancelar</button>
-              </form>
-            `);
-            qs("#new-trans-form").onsubmit = async e => {
-              e.preventDefault();
-              trans.push({
-                codigo: codigo,
-                nombre: qs("#new-t-name").value,
-                direccion: qs("#new-t-dir").value,
-                idWeb: ""
-              });
-              await db.ref("dispositivos/" + devID + "/transmisores").set(trans);
-              await db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
-              showAdminDevice(devID);
-            };
-            qs("#cancel-admin-section").onclick = () => {
-              db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
-              showAdminDevice(devID);
-            };
-          }
+  await db.ref("dispositivos/" + devID + "/modoEscucha").set(true);
+  await db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
+  setText("#admin-sections", `
+    <h3>Modo escucha activado</h3>
+    <p>Presiona el transmisor físico para capturar el código desde el equipo.<br>
+    Espera la señal y luego completa los datos.</p>
+    <button id="cancel-admin-section">Cancelar</button>
+  `);
+  
+  // cancelar botón
+  qs("#cancel-admin-section").onclick = () => {
+    if (window.codigoListener) {
+      db.ref("dispositivos/" + devID + "/codigoCapturado").off("value", window.codigoListener);
+    }
+    showAdminDevice(devID);
+  };
+
+  // limpiar listener anterior si existía
+  if (window.codigoListener) {
+    db.ref("dispositivos/" + devID + "/codigoCapturado").off("value", window.codigoListener);
+  }
+
+  window.codigoListener = async snap => {
+    const codigo = snap.val();
+    if (codigo && codigo !== 0) {
+      setText("#admin-sections", `
+        <h3>Nuevo transmisor detectado</h3>
+        <form id="new-trans-form">
+          <input type="text" id="new-t-name" placeholder="Nombre" required>
+          <input type="text" id="new-t-dir" placeholder="Dirección" required>
+          <input type="text" id="new-t-code" value="${codigo}" readonly>
+          <button type="submit">Guardar</button>
+          <button type="button" id="cancel-admin-section">Cancelar</button>
+        </form>
+      `);
+
+      // guardar
+      qs("#new-trans-form").onsubmit = async e => {
+        e.preventDefault();
+        trans.push({
+          codigo: codigo,
+          nombre: qs("#new-t-name").value,
+          direccion: qs("#new-t-dir").value,
+          idWeb: ""
         });
+        await db.ref("dispositivos/" + devID + "/transmisores").set(trans);
+        await db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
+        db.ref("dispositivos/" + devID + "/codigoCapturado").off("value", window.codigoListener);
+        showAdminDevice(devID);
       };
+
+      // cancelar desde formulario
+      qs("#cancel-admin-section").onclick = () => {
+  db.ref("dispositivos/" + devID + "/codigoCapturado").set(0);
+  db.ref("dispositivos/" + devID + "/modoEscucha").set(false);
+  db.ref("dispositivos/" + devID + "/codigoCapturado").off("value", window.codigoListener);
+  showAdminDevice(devID);
+};
+    }
+  };
+
+  db.ref("dispositivos/" + devID + "/codigoCapturado").on("value", window.codigoListener);
+};
+
       qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
     };
 
