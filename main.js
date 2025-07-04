@@ -126,6 +126,7 @@ auth.onAuthStateChanged(async user => {
     userData = null;
     currentDevice = null;
     isAdmin = false;
+    switchAuth(true);
   }
 });
 
@@ -166,18 +167,18 @@ hide("#register-form");
 show("#auth-message");
 qs("#auth-message").innerHTML = `
   <h2>Tu acceso está pendiente de aprobación por el administrador.</h2>
-  <button id="logout-btn" class="danger">Cerrar sesión</button>
+  <button id="logout-btn-auth" class="danger">Cerrar sesión</button>
 `;
-qs("#logout-btn").onclick = () => auth.signOut();
+qs("#logout-btn-auth").onclick = () => auth.signOut();
     } else {
       hide("#login-form");
 hide("#register-form");
 show("#auth-message");
 qs("#auth-message").innerHTML = `
   <h2>No tienes dispositivos asociados.<br>Pide a tu administrador que te agregue.</h2>
-  <button id="logout-btn" class="danger">Cerrar sesión</button>
+  <button id="logout-btn-auth" class="danger">Cerrar sesión</button>
 `;
-qs("#logout-btn").onclick = () => auth.signOut();
+qs("#logout-btn-auth").onclick = () => auth.signOut();
     }
   }
 }
