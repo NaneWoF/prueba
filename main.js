@@ -11,55 +11,49 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
-// --- Utilidades ---
+// Utilidades DOM
 const qs = sel => document.querySelector(sel);
 const show = (id) => qs(id).style.display = '';
 const hide = (id) => qs(id).style.display = 'none';
 const setText = (id, txt) => { qs(id).innerHTML = txt; };
-const correoToKey = correo => correo.trim().toLowerCase().replace(/\./g, "_"); // ÚNICA forma para emails en Firebase
 
-// --- Estado global ---
+// Estado global
 let currentUser = null;
 let userData = null;
 let currentDevice = null;
 let isAdmin = false;
 
-// --- Loader inicial ---
+// Loader inicial
 hide("#auth-section");
 hide("#user-panel");
 hide("#admin-panel");
 show("#loader");
 
-// --- Toggle Login/Registro ---
-let showRegister = false;
-const toggleAuth = qs("#toggle-auth");
-const loginForm = qs("#login-form");
-const registerForm = qs("#register-form");
-const authTitle = qs("#auth-title");
-
-toggleAuth.onclick = function(e) {
-  e.preventDefault();
-  showRegister = !showRegister;
-  if (showRegister) {
-    loginForm.style.display = "none";
-    registerForm.style.display = "block";
-    toggleAuth.textContent = "¿Ya tienes cuenta? Inicia sesión aquí";
-    authTitle.textContent = "Registro";
+// --- Auth ---
+function switchAuth(showLogin) {
+  if (showLogin) {
+    qs("#auth-title").innerText = "Ingreso";
+    show("#login-form");
+    hide("#register-form");
+    qs("#toggle-auth").innerText = "¿No tienes cuenta? Regístrate aquí";
   } else {
-    loginForm.style.display = "block";
-    registerForm.style.display = "none";
-    toggleAuth.textContent = "¿No tienes cuenta? Regístrate aquí";
-    authTitle.textContent = "Ingreso";
+    qs("#auth-title").innerText = "Registro";
+    hide("#login-form");
+    show("#register-form");
+    qs("#toggle-auth").innerText = "¿Ya tienes cuenta? Inicia sesión aquí";
   }
-  qs("#auth-error").textContent = "";
-};
-loginForm.style.display = "block";
-registerForm.style.display = "none";
-
-// --- Login ---
-loginForm.onsubmit = async e => {
+  qs("#auth-error").innerText = "";
+}
+qs("#toggle-auth").onclick = e => {
   e.preventDefault();
-  const email = qs("#login-email").value.trim();
+  switchAuth(qs("#login-form").style.display !== "none");
+};
+switchAuth(true);
+
+// --- LOGIN
+qs("#login-form").onsubmit = async e => {
+  e.preventDefault();
+  const email = qs("#login-email").value;
   const pass = qs("#login-password").value;
   try {
     await auth.signInWithEmailAndPassword(email, pass);
@@ -68,22 +62,41 @@ loginForm.onsubmit = async e => {
   }
 };
 
-// --- Registro ---
-registerForm.onsubmit = async e => {
+// --- REGISTRO
+qs("#register-form").onsubmit = async e => {
   e.preventDefault();
   const name = qs("#reg-name").value.trim();
   const email = qs("#reg-email").value.trim();
   const address = qs("#reg-address").value.trim();
   const pass = qs("#reg-password").value;
-  if (!name || !address) {
+  const deviceID = qs("#reg-deviceid").value.trim();
+
+  if (!name || !address || !deviceID) {
     qs("#auth-error").innerText = "Todos los campos son obligatorios.";
     return;
   }
+
+  // Validar que el DeviceID existe en Firebase
   try {
+    const devSnap = await db.ref("dispositivos/" + deviceID).once("value");
+    if (!devSnap.exists()) {
+      qs("#auth-error").innerText = "El DeviceID no existe o no está registrado.";
+      return;
+    }
+
     await auth.createUserWithEmailAndPassword(email, pass);
-    const userPath = "usuarios/" + correoToKey(email);
-    await db.ref(userPath).set({ nombre: name, direccion: address, email });
+
+    const userKey = email.replace(/\./g, "_");
+    // Guarda usuario
+    await db.ref("usuarios/" + userKey).set({ nombre: name, direccion: address, email });
+    // Crea solicitud pendiente
+    await db.ref("solicitudesPendientes/" + deviceID + "/" + userKey).set({
+      nombre: name, direccion: address, email
+    });
+
     await auth.signInWithEmailAndPassword(email, pass);
+
+    alert("Registro exitoso. Espera la aprobación del administrador del dispositivo.");
   } catch (err) {
     qs("#auth-error").innerText = err.message;
   }
@@ -109,17 +122,17 @@ auth.onAuthStateChanged(async user => {
 
 // --- Load user data and show panel ---
 async function loadUserData() {
-  const emailKey = correoToKey(currentUser.email);
-  // Buscar dispositivos asociados a usuario
+  const emailKey = currentUser.email.replace(/\./g, "_");
+  // Ver si ya es usuario de algún dispositivo
   const relSnap = await db.ref("relacionesUsuarios/" + emailKey).once("value");
   const relVal = relSnap.val();
   if (relVal) {
-    // Si tiene varios dispositivos, toma el primero por defecto (lógica ajustable)
     const deviceIDs = Object.keys(relVal);
     currentDevice = deviceIDs[0];
   } else {
     currentDevice = null;
   }
+
   // ¿Es admin de algún dispositivo?
   const dispositivosSnap = await db.ref("dispositivos").orderByChild("admin").equalTo(emailKey).once("value");
   if (dispositivosSnap.exists()) {
@@ -129,15 +142,27 @@ async function loadUserData() {
     isAdmin = false;
     showUserPanel();
   } else {
-    setText("#auth-section", "<h2>No tienes dispositivos asociados.<br>Pide a tu administrador que te agregue.</h2><button id='logout-btn' class='danger'>Cerrar sesión</button>");
-    qs("#logout-btn").onclick = () => auth.signOut();
+    // ¿Pendiente de aprobación?
+    let pendiente = false;
+    const pendSnap = await db.ref("solicitudesPendientes").once("value");
+    const pendData = pendSnap.val() || {};
+    Object.keys(pendData).forEach(devID => {
+      if (pendData[devID][emailKey]) pendiente = true;
+    });
+
+    if (pendiente) {
+      setText("#auth-section", "<h2>Tu acceso está pendiente de aprobación por el administrador.</h2><button id='logout-btn' class='danger'>Cerrar sesión</button>");
+      qs("#logout-btn").onclick = () => auth.signOut();
+    } else {
+      setText("#auth-section", "<h2>No tienes dispositivos asociados.<br>Pide a tu administrador que te agregue.</h2><button id='logout-btn' class='danger'>Cerrar sesión</button>");
+      qs("#logout-btn").onclick = () => auth.signOut();
+    }
   }
 }
 
 // --- Panel usuario ---
 async function showUserPanel() {
   hide("#auth-section"); hide("#admin-panel"); show("#user-panel");
-  // Mostrar status y controles
   const devSnap = await db.ref("dispositivos/" + currentDevice).once("value");
   const dev = devSnap.val();
   setText("#user-status", `
@@ -151,7 +176,6 @@ async function showUserPanel() {
   `;
 
   qs("#salida-btn").onclick = async () => {
-    // Activar/desactivar salida y registrar usuario
     const estadoNuevo = !(dev && dev.salida && dev.salida.estado);
     await db.ref("dispositivos/" + currentDevice + "/relay1").set(estadoNuevo);
     await db.ref("dispositivos/" + currentDevice + "/salida").set({
@@ -169,7 +193,6 @@ async function showUserPanel() {
 // --- Panel admin ---
 function showAdminPanel(dispositivos) {
   hide("#auth-section"); hide("#user-panel"); show("#admin-panel");
-  // Llenar select dispositivos
   const devList = Object.keys(dispositivos);
   let selHtml = "";
   devList.forEach(did => {
@@ -195,6 +218,17 @@ async function showAdminDevice(devID) {
     <b>Última salida:</b> ${dev && dev.salida && dev.salida.nombre ? dev.salida.nombre + " (" + dev.salida.direccion + ")" : "Sin registros"}
     <br><b>Estado actual:</b> <span style="color:${dev && dev.salida && dev.salida.estado ? 'green':'red'}">${dev && dev.salida && dev.salida.estado ? 'ACTIVADA':'DESACTIVADA'}</span>
   `);
+
+  // --- Botón solicitudes
+  if (!qs("#view-requests-btn")) {
+    const btn = document.createElement("button");
+    btn.id = "view-requests-btn";
+    btn.textContent = "Solicitudes de acceso";
+    btn.onclick = () => showSolicitudesPendientes(devID);
+    qs("#admin-panel").insertBefore(btn, qs("#admin-panel").children[4]);
+  } else {
+    qs("#view-requests-btn").onclick = () => showSolicitudesPendientes(devID);
+  }
 
   // --- Usuarios
   qs("#add-user-btn").onclick = async () => {
@@ -297,7 +331,6 @@ async function showAdminDevice(devID) {
 
     // Agregar transmisor
     qs("#add-trans-btn").onclick = async () => {
-      // Activa modo escucha desde Firebase
       await db.ref("dispositivos/" + devID + "/modoEscucha").set(true);
       setText("#admin-sections", `
         <h3>Modo escucha activado</h3>
@@ -306,7 +339,6 @@ async function showAdminDevice(devID) {
         <button id="cancel-admin-section">Cancelar</button>
       `);
       qs("#cancel-admin-section").onclick = () => showAdminDevice(devID);
-      // Escucha cambios en codigoCapturado
       db.ref("dispositivos/" + devID + "/codigoCapturado").on("value", async snap => {
         const codigo = snap.val();
         if (codigo && codigo !== 0) {
@@ -344,7 +376,6 @@ async function showAdminDevice(devID) {
 
   // --- Transferir administración ---
   qs("#admin-transfer-btn").onclick = async () => {
-    // Solo entre usuarios existentes y agregados a este dispositivo
     let sel = "<select id='transfer-user'>";
     if (dev.usuarios) {
       Object.keys(dev.usuarios).forEach(uid => {
@@ -370,13 +401,53 @@ async function showAdminDevice(devID) {
   };
 }
 
-// --- Trae datos de usuario ---
+// --- Solicitudes pendientes ---
+async function showSolicitudesPendientes(devID) {
+  const reqSnap = await db.ref("solicitudesPendientes/" + devID).once("value");
+  const reqs = reqSnap.val() || {};
+  let html = "<h3>Solicitudes pendientes</h3>";
+  if (Object.keys(reqs).length === 0) html += "<p>No hay solicitudes pendientes.</p>";
+  else {
+    html += "<ul>";
+    Object.keys(reqs).forEach(uid => {
+      html += `<li>
+        <b>${reqs[uid].nombre}</b> (${reqs[uid].email}) - ${reqs[uid].direccion}
+        <button data-uid="${uid}" class="approve-btn">Aprobar</button>
+        <button data-uid="${uid}" class="danger reject-btn">Rechazar</button>
+      </li>`;
+    });
+    html += "</ul>";
+  }
+  html += "<button id='cancel-admin-section'>Cerrar</button>";
+  setText("#admin-sections", html);
+
+  document.querySelectorAll(".approve-btn").forEach(btn => {
+    btn.onclick = async e => {
+      const uid = btn.getAttribute("data-uid");
+      await db.ref("dispositivos/" + devID + "/usuarios/" + uid).set(true);
+      await db.ref("relacionesUsuarios/" + uid + "/" + devID).set(true);
+      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
+      showAdminDevice(devID);
+    };
+  });
+  document.querySelectorAll(".reject-btn").forEach(btn => {
+    btn.onclick = async e => {
+      const uid = btn.getAttribute("data-uid");
+      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
+      showAdminDevice(devID);
+    };
+  });
+  qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
+}
+
+// --- Trae datos de usuario (nombre, dirección)
 auth.onIdTokenChanged(async (user) => {
   if (user) {
-    const userSnap = await db.ref("usuarios/" + correoToKey(user.email)).once("value");
+    const userSnap = await db.ref("usuarios/" + user.email.replace(/\./g, "_")).once("value");
     userData = userSnap.val();
   } else {
     userData = null;
   }
 });
+
 
