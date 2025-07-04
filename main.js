@@ -16,6 +16,7 @@ const qs = sel => document.querySelector(sel);
 const show = (id) => qs(id).style.display = '';
 const hide = (id) => qs(id).style.display = 'none';
 const setText = (id, txt) => { qs(id).innerHTML = txt; };
+const correoToKey = correo => correo.trim().toLowerCase().replace(/\./g, "_");
 
 // Estado global
 let currentUser = null;
@@ -29,26 +30,32 @@ hide("#user-panel");
 hide("#admin-panel");
 show("#loader");
 
+// --- Toggle Login/Registro ---
+let showRegister = false;
+const toggleAuth = qs("#toggle-auth");
+const loginForm = qs("#login-form");
+const registerForm = qs("#register-form");
+const authTitle = qs("#auth-title");
+
 // --- Auth ---
-function switchAuth(showLogin) {
-  if (showLogin) {
-    qs("#auth-title").innerText = "Ingreso";
-    show("#login-form");
-    hide("#register-form");
-    qs("#toggle-auth").innerText = "¿No tienes cuenta? Regístrate aquí";
-  } else {
-    qs("#auth-title").innerText = "Registro";
-    hide("#login-form");
-    show("#register-form");
-    qs("#toggle-auth").innerText = "¿Ya tienes cuenta? Inicia sesión aquí";
-  }
-  qs("#auth-error").innerText = "";
-}
-qs("#toggle-auth").onclick = e => {
+toggleAuth.onclick = function(e) {
   e.preventDefault();
-  switchAuth(qs("#login-form").style.display !== "none");
+  showRegister = !showRegister;
+  if (showRegister) {
+    loginForm.style.display = "none";
+    registerForm.style.display = "block";
+    toggleAuth.textContent = "¿Ya tienes cuenta? Inicia sesión aquí";
+    authTitle.textContent = "Registro";
+  } else {
+    loginForm.style.display = "block";
+    registerForm.style.display = "none";
+    toggleAuth.textContent = "¿No tienes cuenta? Regístrate aquí";
+    authTitle.textContent = "Ingreso";
+  }
+  qs("#auth-error").textContent = "";
 };
-switchAuth(true);
+loginForm.style.display = "block";
+registerForm.style.display = "none";
 
 // --- LOGIN
 qs("#login-form").onsubmit = async e => {
