@@ -39,6 +39,7 @@ const authTitle = qs("#auth-title");
 
 // --- Auth ---
 function switchAuth(showLogin) {
+  show("#auth-section");
   if (showLogin) {
     qs("#auth-title").innerText = "Ingreso";
     show("#login-form");
