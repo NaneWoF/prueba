@@ -38,26 +38,27 @@ const registerForm = qs("#register-form");
 const authTitle = qs("#auth-title");
 
 // --- Auth ---
-toggleAuth.onclick = function(e) {
-  e.preventDefault();
-  showRegister = !showRegister;
-  if (showRegister) {
-    loginForm.style.display = "none";
-    registerForm.style.display = "block";
-    toggleAuth.textContent = "¿Ya tienes cuenta? Inicia sesión aquí";
-    authTitle.textContent = "Registro";
+// --- Auth ---
+function switchAuth(showLogin) {
+  if (showLogin) {
+    qs("#auth-title").innerText = "Ingreso";
+    show("#login-form");
+    hide("#register-form");
+    qs("#toggle-auth").innerText = "¿No tienes cuenta? Regístrate aquí";
   } else {
-    loginForm.style.display = "block";
-    registerForm.style.display = "none";
-    toggleAuth.textContent = "¿No tienes cuenta? Regístrate aquí";
-    authTitle.textContent = "Ingreso";
+    qs("#auth-title").innerText = "Registro";
+    hide("#login-form");
+    show("#register-form");
+    qs("#toggle-auth").innerText = "¿Ya tienes cuenta? Inicia sesión aquí";
   }
-  qs("#auth-error").textContent = "";
+  qs("#auth-error").innerText = "";
+}
+qs("#toggle-auth").onclick = e => {
+  e.preventDefault();
+  switchAuth(qs("#login-form").style.display !== "none");
 };
-loginForm.style.display = "block";
-registerForm.style.display = "none";
+switchAuth(true);
 
-// --- LOGIN
 qs("#login-form").onsubmit = async e => {
   e.preventDefault();
   const email = qs("#login-email").value;
@@ -69,7 +70,6 @@ qs("#login-form").onsubmit = async e => {
   }
 };
 
-// --- REGISTRO
 qs("#register-form").onsubmit = async e => {
   e.preventDefault();
   const name = qs("#reg-name").value.trim();
@@ -150,6 +150,7 @@ async function loadUserData() {
     showUserPanel();
   } else {
     // ¿Pendiente de aprobación?
+    // Buscar si tiene una solicitud pendiente en solicitudesPendientes
     let pendiente = false;
     const pendSnap = await db.ref("solicitudesPendientes").once("value");
     const pendData = pendSnap.val() || {};
