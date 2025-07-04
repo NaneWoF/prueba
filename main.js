@@ -50,18 +50,6 @@ qs("#toggle-auth").onclick = e => {
 };
 switchAuth(true);
 
-// --- LOGIN
-qs("#login-form").onsubmit = async e => {
-  e.preventDefault();
-  const email = qs("#login-email").value;
-  const pass = qs("#login-password").value;
-  try {
-    await auth.signInWithEmailAndPassword(email, pass);
-  } catch (err) {
-    qs("#auth-error").innerText = "Correo o contraseña inválidos.";
-  }
-};
-
 // --- REGISTRO
 qs("#register-form").onsubmit = async e => {
   e.preventDefault();
@@ -86,6 +74,9 @@ qs("#register-form").onsubmit = async e => {
 
     await auth.createUserWithEmailAndPassword(email, pass);
 
+    // Enviar correo de verificación
+    await auth.currentUser.sendEmailVerification();
+
     const userKey = email.replace(/\./g, "_");
     // Guarda usuario
     await db.ref("usuarios/" + userKey).set({ nombre: name, direccion: address, email });
@@ -94,18 +85,25 @@ qs("#register-form").onsubmit = async e => {
       nombre: name, direccion: address, email
     });
 
-    await auth.signInWithEmailAndPassword(email, pass);
+    await auth.signOut(); // Cierra sesión hasta que verifique correo
+    qs("#auth-error").innerText = "Registro exitoso. Revisa tu correo y verifica tu cuenta antes de iniciar sesión.";
+    switchAuth(true);
 
-    alert("Registro exitoso. Espera la aprobación del administrador del dispositivo.");
   } catch (err) {
     qs("#auth-error").innerText = err.message;
   }
 };
 
-// --- Monitor auth state ---
+// --- Monitor auth state (incluye verificación de email) ---
 auth.onAuthStateChanged(async user => {
   hide("#loader");
   if (user) {
+    if (!user.emailVerified) {
+      qs("#auth-error").innerText = "Debes verificar tu correo antes de continuar. Si no encuentras el email, revisa SPAM.";
+      await auth.signOut();
+      switchAuth(true);
+      return;
+    }
     currentUser = user;
     await loadUserData();
   } else {
