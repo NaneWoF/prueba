@@ -16,6 +16,7 @@ const qs = sel => document.querySelector(sel);
 const show = (id) => qs(id).style.display = '';
 const hide = (id) => qs(id).style.display = 'none';
 const setText = (id, txt) => { qs(id).innerHTML = txt; };
+const correoToKey = correo => correo.trim().toLowerCase().replace(/\./g, "_"); // ÚNICA forma para emails en Firebase
 
 // --- Estado global ---
 let currentUser = null;
@@ -29,30 +30,36 @@ hide("#user-panel");
 hide("#admin-panel");
 show("#loader");
 
-// --- Auth ---
-function switchAuth(showLogin) {
-  if (showLogin) {
-    qs("#auth-title").innerText = "Ingreso";
-    show("#login-form");
-    hide("#register-form");
-    qs("#toggle-auth").innerText = "¿No tienes cuenta? Regístrate aquí";
-  } else {
-    qs("#auth-title").innerText = "Registro";
-    hide("#login-form");
-    show("#register-form");
-    qs("#toggle-auth").innerText = "¿Ya tienes cuenta? Inicia sesión aquí";
-  }
-  qs("#auth-error").innerText = "";
-}
-qs("#toggle-auth").onclick = e => {
-  e.preventDefault();
-  switchAuth(qs("#login-form").style.display !== "none");
-};
-switchAuth(true);
+// --- Toggle Login/Registro ---
+let showRegister = false;
+const toggleAuth = qs("#toggle-auth");
+const loginForm = qs("#login-form");
+const registerForm = qs("#register-form");
+const authTitle = qs("#auth-title");
 
-qs("#login-form").onsubmit = async e => {
+toggleAuth.onclick = function(e) {
   e.preventDefault();
-  const email = qs("#login-email").value;
+  showRegister = !showRegister;
+  if (showRegister) {
+    loginForm.style.display = "none";
+    registerForm.style.display = "block";
+    toggleAuth.textContent = "¿Ya tienes cuenta? Inicia sesión aquí";
+    authTitle.textContent = "Registro";
+  } else {
+    loginForm.style.display = "block";
+    registerForm.style.display = "none";
+    toggleAuth.textContent = "¿No tienes cuenta? Regístrate aquí";
+    authTitle.textContent = "Ingreso";
+  }
+  qs("#auth-error").textContent = "";
+};
+loginForm.style.display = "block";
+registerForm.style.display = "none";
+
+// --- Login ---
+loginForm.onsubmit = async e => {
+  e.preventDefault();
+  const email = qs("#login-email").value.trim();
   const pass = qs("#login-password").value;
   try {
     await auth.signInWithEmailAndPassword(email, pass);
@@ -61,7 +68,8 @@ qs("#login-form").onsubmit = async e => {
   }
 };
 
-qs("#register-form").onsubmit = async e => {
+// --- Registro ---
+registerForm.onsubmit = async e => {
   e.preventDefault();
   const name = qs("#reg-name").value.trim();
   const email = qs("#reg-email").value.trim();
@@ -73,7 +81,7 @@ qs("#register-form").onsubmit = async e => {
   }
   try {
     await auth.createUserWithEmailAndPassword(email, pass);
-    const userPath = "usuarios/" + email.replace(/\./g, "_");
+    const userPath = "usuarios/" + correoToKey(email);
     await db.ref(userPath).set({ nombre: name, direccion: address, email });
     await auth.signInWithEmailAndPassword(email, pass);
   } catch (err) {
@@ -101,7 +109,7 @@ auth.onAuthStateChanged(async user => {
 
 // --- Load user data and show panel ---
 async function loadUserData() {
-  const emailKey = currentUser.email.replace(/\./g, "_");
+  const emailKey = correoToKey(currentUser.email);
   // Buscar dispositivos asociados a usuario
   const relSnap = await db.ref("relacionesUsuarios/" + emailKey).once("value");
   const relVal = relSnap.val();
@@ -116,13 +124,11 @@ async function loadUserData() {
   const dispositivosSnap = await db.ref("dispositivos").orderByChild("admin").equalTo(emailKey).once("value");
   if (dispositivosSnap.exists()) {
     isAdmin = true;
-    // Si admin de varios, muestra selección
     showAdminPanel(dispositivosSnap.val());
   } else if (currentDevice) {
     isAdmin = false;
     showUserPanel();
   } else {
-    // No tiene dispositivo asignado
     setText("#auth-section", "<h2>No tienes dispositivos asociados.<br>Pide a tu administrador que te agregue.</h2><button id='logout-btn' class='danger'>Cerrar sesión</button>");
     qs("#logout-btn").onclick = () => auth.signOut();
   }
@@ -181,7 +187,6 @@ function showAdminPanel(dispositivos) {
 }
 
 async function showAdminDevice(devID) {
-  // Status general del dispositivo
   const devSnap = await db.ref("dispositivos/" + devID).once("value");
   const dev = devSnap.val();
   setText("#admin-status", `
@@ -191,7 +196,6 @@ async function showAdminDevice(devID) {
     <br><b>Estado actual:</b> <span style="color:${dev && dev.salida && dev.salida.estado ? 'green':'red'}">${dev && dev.salida && dev.salida.estado ? 'ACTIVADA':'DESACTIVADA'}</span>
   `);
 
-  // Botones principales
   // --- Usuarios
   qs("#add-user-btn").onclick = async () => {
     const usuariosSnap = await db.ref("usuarios").once("value");
@@ -293,7 +297,7 @@ async function showAdminDevice(devID) {
 
     // Agregar transmisor
     qs("#add-trans-btn").onclick = async () => {
-      // Aquí puedes activar modo escucha desde Firebase (ejemplo)
+      // Activa modo escucha desde Firebase
       await db.ref("dispositivos/" + devID + "/modoEscucha").set(true);
       setText("#admin-sections", `
         <h3>Modo escucha activado</h3>
@@ -302,7 +306,7 @@ async function showAdminDevice(devID) {
         <button id="cancel-admin-section">Cancelar</button>
       `);
       qs("#cancel-admin-section").onclick = () => showAdminDevice(devID);
-      // Escucha cambios en codigoCapturado (ejemplo)
+      // Escucha cambios en codigoCapturado
       db.ref("dispositivos/" + devID + "/codigoCapturado").on("value", async snap => {
         const codigo = snap.val();
         if (codigo && codigo !== 0) {
@@ -369,9 +373,10 @@ async function showAdminDevice(devID) {
 // --- Trae datos de usuario ---
 auth.onIdTokenChanged(async (user) => {
   if (user) {
-    const userSnap = await db.ref("usuarios/" + user.email.replace(/\./g, "_")).once("value");
+    const userSnap = await db.ref("usuarios/" + correoToKey(user.email)).once("value");
     userData = userSnap.val();
   } else {
     userData = null;
   }
 });
+
