@@ -1,0 +1,73 @@
+body {
+  background: #f4f6fa;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0;
+}
+#app {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 20px 0;
+}
+.card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.09);
+  margin-bottom: 24px;
+  padding: 28px 20px 20px 20px;
+}
+input, select, button {
+  width: 100%;
+  font-size: 16px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  border-radius: 7px;
+  border: 1px solid #d5d8df;
+  box-sizing: border-box;
+}
+button {
+  background: #3182ce;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background .15s;
+  font-weight: 500;
+}
+button:hover {
+  background: #20598c;
+}
+button.danger {
+  background: #e53e3e;
+}
+button.danger:hover {
+  background: #a32b2b;
+}
+h1, h2 {
+  color: #2a4365;
+  margin-bottom: 10px;
+}
+.error {
+  color: #e53e3e;
+  margin-top: 10px;
+  font-size: 15px;
+  text-align: center;
+}
+.loader {
+  color: #3182ce;
+  font-size: 1.2em;
+  text-align: center;
+  padding: 30px;
+}
+ul {
+  padding: 0;
+  margin: 0;
+}
+li {
+  list-style: none;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+@media (max-width: 600px) {
+  #app { padding: 0 5px;}
+  .card { padding: 15px 7px;}
+}

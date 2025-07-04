@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Control Remoto WOF Technology</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="loader" class="loader">Cargando...</div>
+
+    <!-- Login / Registro -->
+    <div id="auth-section" class="card" style="display:none;">
+      <h1 id="auth-title">Ingreso</h1>
+      <form id="login-form">
+        <input type="email" id="login-email" placeholder="Correo" required>
+        <input type="password" id="login-password" placeholder="Contraseña" required>
+        <button type="submit">Ingresar</button>
+      </form>
+      <form id="register-form" style="display:none;">
+        <input type="text" id="reg-name" placeholder="Nombre" required>
+        <input type="email" id="reg-email" placeholder="Correo" required>
+        <input type="text" id="reg-address" placeholder="Dirección" required>
+        <input type="text" id="reg-deviceid" placeholder="Device ID" required>
+        <input type="password" id="reg-password" placeholder="Contraseña" required>
+        <button type="submit">Registrarme</button>
+      </form>
+      <div style="margin-top:10px;">
+        <a href="#" id="toggle-auth">¿No tienes cuenta? Regístrate aquí</a>
+      </div>
+      <div id="auth-error" class="error"></div>
+    </div>
+
+    <!-- Panel Usuario -->
+    <div id="user-panel" class="card" style="display:none;">
+      <h2>Panel de Usuario</h2>
+      <div id="user-status"></div>
+      <div id="user-controls" style="margin-top:15px;"></div>
+      <button id="logout-btn" class="danger">Cerrar sesión</button>
+    </div>
+
+    <!-- Panel Admin -->
+    <div id="admin-panel" class="card" style="display:none;">
+      <h2>Panel de Administrador</h2>
+      <div>
+        <label>Dispositivo: </label>
+        <select id="admin-device-list"></select>
+      </div>
+      <div id="admin-status"></div>
+      <div style="margin-top:15px;">
+        <button id="add-user-btn">Agregar usuario</button>
+        <button id="view-requests-btn">Solicitudes de acceso</button>
+        <button id="manage-users-btn">Gestionar usuarios</button>
+        <button id="manage-transmitters-btn">Gestionar transmisores</button>
+        <button id="admin-transfer-btn">Transferir administración</button>
+      </div>
+      <button id="logout-btn-admin" class="danger">Cerrar sesión</button>
+      <div id="admin-sections"></div>
+    </div>
+  </div>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <!-- FOOTER -->
+  <footer style="text-align:center; margin-top:30px;">
+    <img src="logoWOF.png" alt="WOF Logo" style="max-width:150px; margin-top:20px;">
+    <p>© 2025 WOF Technology - Todos los derechos reservados</p>
+  </footer>
+  <script src="main.js"></script>
+</body>
+</html>
