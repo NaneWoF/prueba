@@ -506,14 +506,14 @@ async function showSolicitudesPendientes(devID) {
       const uid = btn.getAttribute("data-uid");
       await db.ref("dispositivos/" + devID + "/usuarios/" + uid).set(true);
       await db.ref("relacionesUsuarios/" + uid + "/" + devID).set(true);
-      await db.ref("solicitudesPendientes/" + devID + uid).remove();
+      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
       showAdminDevice(devID);
     };
   });
   document.querySelectorAll(".reject-btn").forEach(btn => {
     btn.onclick = async e => {
       const uid = btn.getAttribute("data-uid");
-      await db.ref("solicitudesPendientes/" + devID + uid).remove();
+      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
       showAdminDevice(devID);
     };
   });
