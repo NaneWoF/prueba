@@ -7,8 +7,10 @@
     isAdmin = false;
     showUserPanel();
   } else {
+    verificarSolicitudesPendientes();
     // ¿Pendiente de aprobación?
     // Buscar si tiene una solicitud pendiente en solicitudesPendientes
+    async function verificarSolicitudesPendientes() {
     let pendiente = false;
     const dispositivosSnap = await db.ref("dispositivos").once("value");
 const dispositivosData = dispositivosSnap.val() || {};
