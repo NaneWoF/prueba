@@ -487,9 +487,11 @@ function showAdminDevice(devID) {
 async function showSolicitudesPendientes(devID) {
   const reqSnap = await db.ref("dispositivos/" + devID + "/solicitudesPendientes").once("value");
   const reqs = reqSnap.val() || {};
+
   let html = "<h3>Solicitudes pendientes</h3>";
-  if (Object.keys(reqs).length === 0) html += "<p>No hay solicitudes pendientes.</p>";
-  else {
+  if (Object.keys(reqs).length === 0) {
+    html += "<p>No hay solicitudes pendientes.</p>";
+  } else {
     html += "<ul>";
     Object.keys(reqs).forEach(uid => {
       html += `<li>
@@ -501,6 +503,7 @@ async function showSolicitudesPendientes(devID) {
     html += "</ul>";
   }
   html += "<button id='cancel-admin-section'>Cerrar</button>";
+
   setText("#admin-sections", html);
 
   document.querySelectorAll(".approve-btn").forEach(btn => {
@@ -512,13 +515,15 @@ async function showSolicitudesPendientes(devID) {
       showAdminDevice(devID);
     };
   });
+
   document.querySelectorAll(".reject-btn").forEach(btn => {
     btn.onclick = async e => {
       const uid = btn.getAttribute("data-uid");
-      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
+      await db.ref("dispositivos/" + devID + "/solicitudesPendientes/" + uid).remove();
       showAdminDevice(devID);
     };
   });
+
   qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
 }
 // --- Trae datos de usuario (nombre, dirección)
