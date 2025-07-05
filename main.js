@@ -150,7 +150,8 @@ async function loadUserData() {
   } else {
     currentDevice = null;
   }
-// ¿Es admin de algún dispositivo?
+
+  // ¿Es admin de algún dispositivo?
   const dispositivosSnap = await db.ref("dispositivos").orderByChild("admin").equalTo(emailKey).once("value");
   if (dispositivosSnap.exists()) {
     isAdmin = true;
@@ -159,17 +160,14 @@ async function loadUserData() {
     isAdmin = false;
     showUserPanel();
   } else {
-    verificarSolicitudesPendientes();
     // ¿Pendiente de aprobación?
     // Buscar si tiene una solicitud pendiente en solicitudesPendientes
-    async function verificarSolicitudesPendientes() {
     let pendiente = false;
-    const dispositivosSnap = await db.ref("dispositivos").once("value");
-const dispositivosData = dispositivosSnap.val() || {};
-Object.keys(dispositivosData).forEach(devID => {
-  const dev = dispositivosData[devID];
-  if (dev.solicitudesPendientes && dev.solicitudesPendientes[emailKey]) pendiente = true;
-});
+    const pendSnap = await db.ref("solicitudesPendientes").once("value");
+    const pendData = pendSnap.val() || {};
+    Object.keys(pendData).forEach(devID => {
+      if (pendData[devID][emailKey]) pendiente = true;
+    });
 
     if (pendiente) {
       hide("#login-form");
@@ -479,17 +477,17 @@ function showAdminDevice(devID) {
         setTimeout(() => showAdminDevice(devID), 1500);
       };
       qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
-  };
+    };
+  });
 }
+
 // --- Solicitudes pendientes ---
 async function showSolicitudesPendientes(devID) {
-  const reqSnap = await db.ref("dispositivos/" + devID + "/solicitudesPendientes").once("value");
+  const reqSnap = await db.ref("solicitudesPendientes/" + devID).once("value");
   const reqs = reqSnap.val() || {};
-
   let html = "<h3>Solicitudes pendientes</h3>";
-  if (Object.keys(reqs).length === 0) {
-    html += "<p>No hay solicitudes pendientes.</p>";
-  } else {
+  if (Object.keys(reqs).length === 0) html += "<p>No hay solicitudes pendientes.</p>";
+  else {
     html += "<ul>";
     Object.keys(reqs).forEach(uid => {
       html += `<li>
@@ -501,7 +499,6 @@ async function showSolicitudesPendientes(devID) {
     html += "</ul>";
   }
   html += "<button id='cancel-admin-section'>Cerrar</button>";
-
   setText("#admin-sections", html);
 
   document.querySelectorAll(".approve-btn").forEach(btn => {
@@ -509,19 +506,17 @@ async function showSolicitudesPendientes(devID) {
       const uid = btn.getAttribute("data-uid");
       await db.ref("dispositivos/" + devID + "/usuarios/" + uid).set(true);
       await db.ref("relacionesUsuarios/" + uid + "/" + devID).set(true);
-      await db.ref("dispositivos/" + devID + "/solicitudesPendientes/" + uid).remove();
+      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
       showAdminDevice(devID);
     };
   });
-
   document.querySelectorAll(".reject-btn").forEach(btn => {
     btn.onclick = async e => {
       const uid = btn.getAttribute("data-uid");
-      await db.ref("dispositivos/" + devID + "/solicitudesPendientes/" + uid).remove();
+      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
       showAdminDevice(devID);
     };
   });
-
   qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
 }
 // --- Trae datos de usuario (nombre, dirección)
