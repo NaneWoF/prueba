@@ -93,7 +93,7 @@ qs("#register-form").onsubmit = async e => {
 
   // Validar que el DeviceID existe en Firebase
   try {
-    const devSnap = await db.ref("dispositivos/" + deviceID).once("value");
+    const devSnap = await db.ref("listaDeviceIDs/" + deviceID).once("value");
     if (!devSnap.exists()) {
       qs("#auth-error").innerText = "El DeviceID no existe o no está registrado.";
       return;
