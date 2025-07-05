@@ -485,7 +485,7 @@ function showAdminDevice(devID) {
 
 // --- Solicitudes pendientes ---
 async function showSolicitudesPendientes(devID) {
-  const reqSnap = await db.ref(""dispositivos/" + devID + "/solicitudesPendientes").once("value");
+  const reqSnap = await db.ref("dispositivos/" + devID + "/solicitudesPendientes").once("value");
   const reqs = reqSnap.val() || {};
   let html = "<h3>Solicitudes pendientes</h3>";
   if (Object.keys(reqs).length === 0) html += "<p>No hay solicitudes pendientes.</p>";
