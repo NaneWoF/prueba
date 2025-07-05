@@ -1,3 +1,155 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyB4OFajtU-bKi7wuN5B1N_1x71hDo4nf8U",
+  authDomain: "alarmaswof.firebaseapp.com",
+  databaseURL: "https://alarmaswof-default-rtdb.firebaseio.com",
+  projectId: "alarmaswof",
+  storageBucket: "alarmaswof.appspot.com",
+  messagingSenderId: "xxxx",
+  appId: "1:xxxx:web:xxxx"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+// Utilidades DOM
+const qs = sel => document.querySelector(sel);
+const show = (id) => qs(id).style.display = '';
+const hide = (id) => qs(id).style.display = 'none';
+const setText = (id, txt) => { qs(id).innerHTML = txt; };
+const correoToKey = correo => correo.trim().toLowerCase().replace(/\./g, "_");
+
+// Estado global
+let currentUser = null;
+let userData = null;
+let currentDevice = null;
+let isAdmin = false;
+
+// Loader inicial
+hide("#auth-section");
+hide("#user-panel");
+hide("#admin-panel");
+show("#loader");
+
+// --- Toggle Login/Registro ---
+let showRegister = false;
+const toggleAuth = qs("#toggle-auth");
+const loginForm = qs("#login-form");
+const registerForm = qs("#register-form");
+const authTitle = qs("#auth-title");
+
+// --- Auth ---
+function switchAuth(showLogin) {
+  show("#auth-section");
+  isLoginVisible = showLogin;
+  console.log("switchAuth activado, showLogin=", showLogin);
+  if (showLogin) {
+    console.log("mostrando login");
+    qs("#auth-title").innerText = "Ingreso";
+    show("#login-form");
+    hide("#register-form");
+    qs("#toggle-auth").innerText = "¿No tienes cuenta? Regístrate aquí";
+  } else {
+    console.log("mostrando registro");
+    qs("#auth-title").innerText = "Registro";
+    hide("#login-form");
+    show("#register-form");
+    qs("#toggle-auth").innerText = "¿Ya tienes cuenta? Inicia sesión aquí";
+  }
+  // resetear mensajes
+  qs("#auth-error").innerText = "";
+  hide("#auth-message");
+  qs("#auth-message").innerHTML = "";
+}
+qs("#toggle-auth").onclick = e => {
+  e.preventDefault();
+  console.log("click en toggle-auth registrado");
+  switchAuth(!isLoginVisible);
+};
+switchAuth(true);
+
+qs("#login-form").onsubmit = async e => {
+  e.preventDefault();
+  const email = qs("#login-email").value;
+  const pass = qs("#login-password").value;
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (err) {
+    qs("#auth-error").innerText = "Correo o contraseña inválidos.";
+  }
+};
+
+qs("#register-form").onsubmit = async e => {
+  e.preventDefault();
+  const name = qs("#reg-name").value.trim();
+  const email = qs("#reg-email").value.trim();
+  const address = qs("#reg-address").value.trim();
+  const pass = qs("#reg-password").value;
+  const deviceID = qs("#reg-deviceid").value.trim();
+
+  if (!name || !address || !deviceID) {
+    qs("#auth-error").innerText = "Todos los campos son obligatorios.";
+    return;
+  }
+
+  // Validar que el DeviceID existe en Firebase
+  try {
+    const devSnap = await db.ref("dispositivos/" + deviceID).once("value");
+    if (!devSnap.exists()) {
+      qs("#auth-error").innerText = "El DeviceID no existe o no está registrado.";
+      return;
+    }
+
+    await auth.createUserWithEmailAndPassword(email, pass);
+
+    const userKey = email.replace(/\./g, "_");
+    // Guarda usuario
+    await db.ref("usuarios/" + userKey).set({ nombre: name, direccion: address, email });
+    // Crea solicitud pendiente
+    await db.ref("solicitudesPendientes/" + deviceID + "/" + userKey).set({
+      nombre: name, direccion: address, email
+    });
+
+    await auth.signInWithEmailAndPassword(email, pass);
+
+    alert("Registro exitoso. Espera la aprobación del administrador del dispositivo.");
+  } catch (err) {
+    qs("#auth-error").innerText = err.message;
+  }
+};
+
+// --- Monitor auth state ---
+auth.onAuthStateChanged(async user => {
+  hide("#loader");
+  if (user) {
+    currentUser = user;
+    await loadUserData();
+  } else {
+    show("#auth-section");
+    hide("#user-panel");
+    hide("#admin-panel");
+    hide("#auth-message");                
+    qs("#auth-message").innerHTML = ""; 
+    setText("#auth-error", "");
+    currentUser = null;
+    userData = null;
+    currentDevice = null;
+    isAdmin = false;
+    switchAuth(true);
+  }
+});
+
+// --- Load user data and show panel ---
+async function loadUserData() {
+  const emailKey = currentUser.email.replace(/\./g, "_");
+  // Ver si ya es usuario de algún dispositivo
+  const relSnap = await db.ref("relacionesUsuarios/" + emailKey).once("value");
+  const relVal = relSnap.val();
+  if (relVal) {
+    const deviceIDs = Object.keys(relVal);
+    currentDevice = deviceIDs[0];
+  } else {
+    currentDevice = null;
+  }
 // ¿Es admin de algún dispositivo?
   const dispositivosSnap = await db.ref("dispositivos").orderByChild("admin").equalTo(emailKey).once("value");
   if (dispositivosSnap.exists()) {
