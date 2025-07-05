@@ -479,7 +479,8 @@ function showAdminDevice(devID) {
         setTimeout(() => showAdminDevice(devID), 1500);
       };
       qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
-  });
+  };
+}
 // --- Solicitudes pendientes ---
 async function showSolicitudesPendientes(devID) {
   const reqSnap = await db.ref("dispositivos/" + devID + "/solicitudesPendientes").once("value");
