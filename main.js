@@ -105,7 +105,7 @@ qs("#register-form").onsubmit = async e => {
     // Guarda usuario
     await db.ref("usuarios/" + userKey).set({ nombre: name, direccion: address, email });
     // Crea solicitud pendiente
-    await db.ref("dispositivos/" + devID + "/solicitudesPendientes").set({
+    await db.ref("dispositivos/" + devID + "/solicitudesPendientes" + userKey).set({
       nombre: name, direccion: address, email
     });
 
