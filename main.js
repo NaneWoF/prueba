@@ -105,7 +105,7 @@ qs("#register-form").onsubmit = async e => {
     // Guarda usuario
     await db.ref("usuarios/" + userKey).set({ nombre: name, direccion: address, email });
     // Crea solicitud pendiente
-    await db.ref("solicitudesPendientes/" + deviceID + "/" + userKey).set({
+    await db.ref("dispositivos/" + devID + "/solicitudesPendientes").set({
       nombre: name, direccion: address, email
     });
 
@@ -483,7 +483,7 @@ function showAdminDevice(devID) {
 
 // --- Solicitudes pendientes ---
 async function showSolicitudesPendientes(devID) {
-  const reqSnap = await db.ref("solicitudesPendientes/" + devID).once("value");
+  const reqSnap = await db.ref("dispositivos/" + devID + "/solicitudesPendientes").once("value");
   const reqs = reqSnap.val() || {};
   let html = "<h3>Solicitudes pendientes</h3>";
   if (Object.keys(reqs).length === 0) html += "<p>No hay solicitudes pendientes.</p>";
@@ -506,14 +506,14 @@ async function showSolicitudesPendientes(devID) {
       const uid = btn.getAttribute("data-uid");
       await db.ref("dispositivos/" + devID + "/usuarios/" + uid).set(true);
       await db.ref("relacionesUsuarios/" + uid + "/" + devID).set(true);
-      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
+      await db.ref("dispositivos/" + devID + "/solicitudesPendientes" + uid).remove();
       showAdminDevice(devID);
     };
   });
   document.querySelectorAll(".reject-btn").forEach(btn => {
     btn.onclick = async e => {
       const uid = btn.getAttribute("data-uid");
-      await db.ref("solicitudesPendientes/" + devID + "/" + uid).remove();
+      await db.ref("dispositivos/" + devID + "/solicitudesPendientes" + uid).remove();
       showAdminDevice(devID);
     };
   });
