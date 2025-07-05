@@ -163,7 +163,7 @@ async function loadUserData() {
     // ¿Pendiente de aprobación?
     // Buscar si tiene una solicitud pendiente en solicitudesPendientes
     let pendiente = false;
-    const pendSnap = await db.ref("solicitudesPendientes" + currentDevice).once("value");
+    const pendSnap = await db.ref("solicitudesPendientes/" + currentDevice).once("value");
     const pendData = pendSnap.val() || {};
     Object.keys(pendData).forEach(devID => {
       if (pendData[devID][emailKey]) pendiente = true;
