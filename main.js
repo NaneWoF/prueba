@@ -453,32 +453,45 @@ function showAdminDevice(devID) {
       qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
     };
     // --- Transferir administración ---
-    qs("#admin-transfer-btn").onclick = async () => {
-      let sel = "<select id='transfer-user'>";
-      if (dev.usuarios) {
-        Object.keys(dev.usuarios).forEach(uid => {
-          if (uid !== dev.admin) {
-            sel += `<option value="${uid}">${uid.replace(/_/g, ".")}</option>`;
-          }
-        });
+qs("#admin-transfer-btn").onclick = async () => {
+  let sel = "<select id='transfer-user'>";
+  if (dev.usuarios) {
+    Object.keys(dev.usuarios).forEach(uid => {
+      if (uid !== dev.admin) {
+        sel += `<option value="${uid}">${uid.replace(/_/g, ".")}</option>`;
       }
-      sel += "</select>";
-      setText("#admin-sections", `
-        <h3>Transferir administración</h3>
-        ${sel}
-        <button id="confirm-transfer">Transferir</button>
-        <button id="cancel-admin-section">Cancelar</button>
-      `);
-      qs("#confirm-transfer").onclick = async () => {
-        const newAdmin = qs("#transfer-user").value;
-        await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
-        setText("#admin-sections", "<b>Transferencia exitosa.</b>");
-        setTimeout(() => showAdminDevice(devID), 1500);
-      };
-      qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
-    };
-  });
-}
+    });
+  }
+  sel += "</select>";
+  setText("#admin-sections", `
+    <h3>Transferir administración</h3>
+    ${sel}
+    <button id="confirm-transfer">Transferir</button>
+    <button id="cancel-admin-section">Cancelar</button>
+  `);
+
+  qs("#confirm-transfer").onclick = async () => {
+    const newAdmin = qs("#transfer-user").value;
+    const oldAdmin = dev.admin;
+
+    try {
+      // transferir la administración
+      await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
+
+      // dejar al antiguo admin como usuario normal
+      await db.ref("dispositivos/" + devID + "/usuarios/" + oldAdmin).set(true);
+      await db.ref("relacionesUsuarios/" + oldAdmin + "/" + devID).set(true);
+
+      setText("#admin-sections", "<b>Transferencia exitosa.</b><br>Redirigiendo...");
+      setTimeout(() => { auth.signOut(); }, 1500);
+    } catch (err) {
+      console.error(err);
+      setText("#admin-sections", `<b>Error:</b> ${err.message}`);
+    }
+  };
+
+  qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
+};
 // --- Solicitudes pendientes ---
 async function showSolicitudesPendientes(devID) {
   const reqSnap = await db.ref("solicitudesPendientes/" + devID).once("value");
