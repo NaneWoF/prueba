@@ -469,27 +469,21 @@ qs("#admin-transfer-btn").onclick = async () => {
     <button id="confirm-transfer">Transferir</button>
     <button id="cancel-admin-section">Cancelar</button>
   `);
-
   qs("#confirm-transfer").onclick = async () => {
     const newAdmin = qs("#transfer-user").value;
-
-    const oldAdmin = dev.admin;
-
-    try {
+const oldAdmin = dev.admin;
+try {
       await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
       await db.ref("dispositivos/" + devID + "/usuarios/" + oldAdmin).set(true);
 
       setText("#admin-sections", "<b>Transferencia exitosa.</b><br>Redirigiendo...");
-      setTimeout(() => {
-        auth.signOut();
-      }, 1500);
-
-    } catch (err) {
+      setTimeout(() => {auth.signOut();}, 1500);
+    } 
+catch (err) {
       console.error(err);
       setText("#admin-sections", `<b>Error:</b> ${err.message}`);
     }
   };
-
   qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
 };
 // --- Solicitudes pendientes ---
@@ -533,9 +527,32 @@ async function showSolicitudesPendientes(devID) {
 // --- Trae datos de usuario (nombre, dirección)
 auth.onIdTokenChanged(async (user) => {
   if (user) {
-    const userSnap = await db.ref("usuarios/" + user.email.replace(/\./g, "_")).once("value");
+    const emailKey = user.email.replace(/\./g, "_");
+    const userSnap = await db.ref("usuarios/" + emailKey).once("value");
     userData = userSnap.val();
+
+    // comprobar si es admin
+    const dispositivosSnap = await db.ref("dispositivos").orderByChild("admin").equalTo(emailKey).once("value");
+    if (dispositivosSnap.exists()) {
+      isAdmin = true;
+      showAdminPanel(dispositivosSnap.val());
+    } else {
+      // comprobar si es usuario normal
+      const relacionesSnap = await db.ref("relacionesUsuarios/" + emailKey).once("value");
+      if (relacionesSnap.exists()) {
+        currentDevice = Object.keys(relacionesSnap.val())[0];  // el primero
+        isAdmin = false;
+        showUserPanel();
+      } else {
+        // no es nada
+        showLogin();
+        alert("No tienes dispositivos asociados. Contacta al administrador.");
+        await auth.signOut();
+      }
+    }
+
   } else {
     userData = null;
+    showLogin();
   }
 });
