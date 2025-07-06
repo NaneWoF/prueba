@@ -16,9 +16,14 @@
       <div id="auth-message" style="display:none"></div>
       <form id="login-form">
         <input type="email" id="login-email" placeholder="Correo" required>
-        <input type="password" id="login-password" placeholder="Contraseña" required>
-        <button type="submit">Ingresar</button>
-      </form>
+        <div style="position:relative;">
+    <input type="password" id="login-password" placeholder="Contraseña" required>
+    <button type="button" id="togglePassword" style="position:absolute; right:5px; top:5px; border:none; background:none; cursor:pointer;">
+      👁️
+    </button>
+  </div>
+  <button type="submit">Ingresar</button>
+</form>
       <form id="register-form" style="display:none;">
         <input type="text" id="reg-name" placeholder="Nombre" required>
         <input type="email" id="reg-email" placeholder="Correo" required>
