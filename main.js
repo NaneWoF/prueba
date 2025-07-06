@@ -597,3 +597,14 @@ qs("#togglePassword").onclick = () => {
     qs("#togglePassword").textContent = "👁️";
   }
 };
+// 👁️ Mostrar/ocultar contraseña Registro
+qs("#toggleRegisterPassword").onclick = () => { 
+  const pwdInput = qs("#register-password");
+  if (pwdInput.type === "password") {
+    pwdInput.type = "text";
+    qs("#toggleRegisterPassword").textContent = "🙈";
+  } else {
+    pwdInput.type = "password";
+    qs("#toggleRegisterPassword").textContent = "👁️";
+  }
+};
