@@ -265,7 +265,9 @@ async function showUserPanel() {
     const devSalida = snapshot.val();
     setText("#user-status", `
       <b>Dispositivo:</b> ${currentDevice} <br>
-      <b>Última salida:</b> ${devSalida && devSalida.nombre ? devSalida.nombre + " (" + devSalida.direccion + ")" : "Sin registros"}
+      <b>Última salida:</b><br>
+${devSalida && devSalida.nombre ? "Nombre: " + devSalida.nombre : "Sin registros"}<br>
+${devSalida && devSalida.direccion ? "Dirección: " + devSalida.direccion : ""}
       <br><b>Estado actual:</b> <span style="color:${devSalida && devSalida.estado ? 'green':'red'}">${devSalida && devSalida.estado ? 'ACTIVADA':'DESACTIVADA'}</span>
     `);
 
@@ -329,7 +331,9 @@ function showAdminDevice(devID) {
     setText("#admin-status", `
       <b>Dispositivo:</b> ${devID}<br>
       <b>Administrador:</b> ${dev && dev.admin ? dev.admin.replace(/_/g, ".") : ""}<br>
-      <b>Última salida:</b> ${dev && dev.salida && dev.salida.nombre ? dev.salida.nombre + " (" + dev.salida.direccion + ")" : "Sin registros"}
+      <b>Última salida:</b><br>
+${dev && dev.salida && dev.salida.nombre ? "Nombre: " + dev.salida.nombre : "Sin registros"}<br>
+${dev && dev.salida && dev.salida.direccion ? "Dirección: " + dev.salida.direccion : ""}
       <br><b>Estado actual:</b> <span style="color:${dev && dev.salida && dev.salida.estado ? 'green':'red'}">${dev && dev.salida && dev.salida.estado ? 'ACTIVADA':'DESACTIVADA'}</span>
     `);
 
