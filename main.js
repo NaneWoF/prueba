@@ -275,13 +275,17 @@ ${devSalida && devSalida.direccion ? "Dirección: " + devSalida.direccion : ""}
       <button id="salida-btn">${devSalida && devSalida.estado ? 'Desactivar':'Activar'} salida</button>
     `;
     qs("#salida-btn").onclick = async () => {
+      if (!userData) {
+    const userSnap = await db.ref("usuarios/" + currentUser.email.replace(/\./g, "_")).once("value");
+    userData = userSnap.val();
+  }
       // Activar/desactivar salida y registrar usuario
       const estadoNuevo = !(devSalida && devSalida.estado);
       await db.ref("dispositivos/" + currentDevice + "/relay1").set(estadoNuevo);
       await db.ref("dispositivos/" + currentDevice + "/salida").set({
         estado: estadoNuevo,
         nombre: userData && userData.nombre ? userData.nombre : currentUser.email,
-        direccion: userData && userData.direccion ? userData.direccion : "",
+        direccion: userData && userData.direccion ? userData.direccion : "Sin Dirección",
         timestamp: Date.now()
       });
     };
