@@ -454,32 +454,46 @@ function showAdminDevice(devID) {
     };
 
     // --- Transferir administración ---
-    qs("#admin-transfer-btn").onclick = async () => {
-      let sel = "<select id='transfer-user'>";
-      if (dev.usuarios) {
-        Object.keys(dev.usuarios).forEach(uid => {
-          if (uid !== dev.admin) {
-            sel += `<option value="${uid}">${uid.replace(/_/g, ".")}</option>`;
-          }
-        });
+qs("#admin-transfer-btn").onclick = async () => {
+  let sel = "<select id='transfer-user'>";
+  if (dev.usuarios) {
+    Object.keys(dev.usuarios).forEach(uid => {
+      if (uid !== dev.admin) {
+        sel += `<option value="${uid}">${uid.replace(/_/g, ".")}</option>`;
       }
-      sel += "</select>";
-      setText("#admin-sections", `
-        <h3>Transferir administración</h3>
-        ${sel}
-        <button id="confirm-transfer">Transferir</button>
-        <button id="cancel-admin-section">Cancelar</button>
-      `);
-      qs("#confirm-transfer").onclick = async () => {
-        const newAdmin = qs("#transfer-user").value;
-        await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
-        setText("#admin-sections", "<b>Transferencia exitosa.</b>");
-        setTimeout(() => showAdminDevice(devID), 1500);
-      };
-      qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
-    };
-  });
-}
+    });
+  }
+  sel += "</select>";
+  setText("#admin-sections", `
+    <h3>Transferir administración</h3>
+    ${sel}
+    <button id="confirm-transfer">Transferir</button>
+    <button id="cancel-admin-section">Cancelar</button>
+  `);
+
+  qs("#confirm-transfer").onclick = async () => {
+    const newAdmin = qs("#transfer-user").value;
+
+    // Guarda el admin anterior
+    const oldAdmin = dev.admin;
+
+    // Cambia el campo admin
+    await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
+
+    // Agrega el admin saliente como usuario normal
+    await db.ref("dispositivos/" + devID + "/usuarios/" + oldAdmin).set(true);
+
+    // Mensaje
+    setText("#admin-sections", "<b>Transferencia exitosa.</b><br>Redirigiendo...");
+
+    // Espera un segundo y fuerza logout para el admin saliente
+    setTimeout(() => {
+      auth.signOut();
+    }, 1500);
+  };
+
+  qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
+};
 
 // --- Solicitudes pendientes ---
 async function showSolicitudesPendientes(devID) {
