@@ -140,16 +140,27 @@ auth.onAuthStateChanged(async user => {
 
 // --- Load user data and show panel ---
 async function loadUserData() {
-  const emailKey = currentUser.email.replace(/\./g, "_");
-  // Ver si ya es usuario de algún dispositivo
-  const relSnap = await db.ref("relacionesUsuarios/" + emailKey).once("value");
-  const relVal = relSnap.val();
-  if (relVal) {
-    const deviceIDs = Object.keys(relVal);
-    currentDevice = deviceIDs[0];
-  } else {
-    currentDevice = null;
+  if (!currentUser) return;
+const emailKey = currentUser.email.replace(/\./g, "_");
+const dispositivosSnap = await db.ref("dispositivos").once("value");
+const dispositivos = dispositivosSnap.val() || {};
+let found = false;
+  for (const devID of Object.keys(dispositivos)) {
+  const dev = dispositivos[devID];
+if (dev.usuarios && dev.usuarios[emailKey]) {
+    currentDevice = devID;
+      found = true;
+      break;
+    }
+    // además puede ser admin
+    if (dev.admin === emailKey) {
+      currentDevice = devID;
+      found = true;
+      break;
+    }
   }
+if (!found) currentDevice = null;
+}
   // ¿Es admin de algún dispositivo?
   const dispositivosSnap = await db.ref("dispositivos").orderByChild("admin").equalTo(emailKey).once("value");
   if (dispositivosSnap.exists()) {
