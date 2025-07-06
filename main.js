@@ -586,3 +586,14 @@ auth.onIdTokenChanged(async (user) => {
     userData = null;
   }
 });
+// 👁️ Mostrar/ocultar contraseña
+qs("#togglePassword").onclick = () => { 
+  const pwdInput = qs("#login-password");
+  if (pwdInput.type === "password") {
+    pwdInput.type = "text";
+    qs("#togglePassword").textContent = "🙈";
+  } else {
+    pwdInput.type = "password";
+    qs("#togglePassword").textContent = "👁️";
+  }
+};
