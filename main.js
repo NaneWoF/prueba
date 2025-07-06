@@ -116,13 +116,13 @@ qs("#register-form").onsubmit = async e => {
     qs("#auth-error").innerText = err.message;
   }
 };
-
 // --- Monitor auth state ---
 auth.onAuthStateChanged(async user => {
   hide("#loader");
+
   if (user) {
     currentUser = user;
-    await loadUserData();
+    await loadUserData();  // la función completa incluye todo el chequeo
   } else {
     show("#auth-section");
     hide("#user-panel");
@@ -137,31 +137,81 @@ auth.onAuthStateChanged(async user => {
     switchAuth(true);
   }
 });
-
 // --- Load user data and show panel ---
 async function loadUserData() {
   if (!currentUser) return;
-const emailKey = currentUser.email.replace(/\./g, "_");
-const dispositivosSnap = await db.ref("dispositivos").once("value");
-const dispositivos = dispositivosSnap.val() || {};
-let found = false;
+
+  const emailKey = currentUser.email.replace(/\./g, "_");
+  let found = false;
+
+  // buscar en dispositivos donde sea usuario o admin
+  const dispositivosSnap = await db.ref("dispositivos").once("value");
+  const dispositivos = dispositivosSnap.val() || {};
+
   for (const devID of Object.keys(dispositivos)) {
-  const dev = dispositivos[devID];
-if (dev.usuarios && dev.usuarios[emailKey]) {
-    currentDevice = devID;
+    const dev = dispositivos[devID];
+
+    if (dev.usuarios && dev.usuarios[emailKey]) {
+      currentDevice = devID;
       found = true;
       break;
     }
-    // además puede ser admin
+
     if (dev.admin === emailKey) {
       currentDevice = devID;
       found = true;
       break;
     }
   }
-if (!found) currentDevice = null;
+
+  if (found) {
+    // ¿Es admin?
+    const adminDevSnap = await db
+      .ref("dispositivos")
+      .orderByChild("admin")
+      .equalTo(emailKey)
+      .once("value");
+
+    if (adminDevSnap.exists()) {
+      isAdmin = true;
+      showAdminPanel(adminDevSnap.val());
+    } else {
+      isAdmin = false;
+      showUserPanel();
+    }
+  } else {
+    // revisar solicitudes pendientes
+    let pendiente = false;
+    const pendSnap = await db.ref("solicitudesPendientes").once("value");
+    const pendData = pendSnap.val() || {};
+
+    Object.keys(pendData).forEach(devID => {
+      if (pendData[devID] && pendData[devID][emailKey]) pendiente = true;
+    });
+
+    if (pendiente) {
+      hide("#login-form");
+      hide("#register-form");
+      show("#auth-message");
+      qs("#auth-message").innerHTML = `
+        <h2>Tu acceso está pendiente de aprobación por el administrador.</h2>
+        <button id="logout-btn-auth" class="danger">Cerrar sesión</button>
+      `;
+      qs("#logout-btn-auth").onclick = () => auth.signOut();
+    } else {
+      hide("#login-form");
+      hide("#register-form");
+      show("#auth-message");
+      qs("#auth-message").innerHTML = `
+        <h2>No tienes dispositivos asociados.<br>Pide a tu administrador que te agregue.</h2>
+        <button id="logout-btn-auth" class="danger">Cerrar sesión</button>
+      `;
+      qs("#logout-btn-auth").onclick = () => auth.signOut();
+    }
+  }
 }
-  // ¿Es admin de algún dispositivo?
+ // ¿Es admin de algún dispositivo?
+async function verificarAcceso() {
   const dispositivosSnap = await db.ref("dispositivos").orderByChild("admin").equalTo(emailKey).once("value");
   if (dispositivosSnap.exists()) {
     isAdmin = true;
@@ -200,7 +250,6 @@ qs("#logout-btn-auth").onclick = () => auth.signOut();
     }
   }
 }
-
 // --- Panel usuario ---
 let salidaListener = null;
 
