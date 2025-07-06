@@ -452,7 +452,6 @@ function showAdminDevice(devID) {
 
       qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
     };
-
     // --- Transferir administración ---
 qs("#admin-transfer-btn").onclick = async () => {
   let sel = "<select id='transfer-user'>";
@@ -474,27 +473,25 @@ qs("#admin-transfer-btn").onclick = async () => {
   qs("#confirm-transfer").onclick = async () => {
     const newAdmin = qs("#transfer-user").value;
 
-    // Guarda el admin anterior
     const oldAdmin = dev.admin;
 
-    // Cambia el campo admin
-    await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
+    try {
+      await db.ref("dispositivos/" + devID + "/admin").set(newAdmin);
+      await db.ref("dispositivos/" + devID + "/usuarios/" + oldAdmin).set(true);
 
-    // Agrega el admin saliente como usuario normal
-    await db.ref("dispositivos/" + devID + "/usuarios/" + oldAdmin).set(true);
+      setText("#admin-sections", "<b>Transferencia exitosa.</b><br>Redirigiendo...");
+      setTimeout(() => {
+        auth.signOut();
+      }, 1500);
 
-    // Mensaje
-    setText("#admin-sections", "<b>Transferencia exitosa.</b><br>Redirigiendo...");
-
-    // Espera un segundo y fuerza logout para el admin saliente
-    setTimeout(() => {
-      auth.signOut();
-    }, 1500);
+    } catch (err) {
+      console.error(err);
+      setText("#admin-sections", `<b>Error:</b> ${err.message}`);
+    }
   };
 
   qs("#cancel-admin-section").onclick = () => setText("#admin-sections", "");
 };
-
 // --- Solicitudes pendientes ---
 async function showSolicitudesPendientes(devID) {
   const reqSnap = await db.ref("solicitudesPendientes/" + devID).once("value");
